@@ -8,26 +8,26 @@
 #include <vector>
 #include <numeric>
 #pragma warning(disable:4100)// исключение предупреждения
-using namespace std;
+//using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 
-string ReadLine() {
-    string s;
-    getline(cin, s);
+std::string ReadLine() {
+    std::string s;
+    getline(std::cin, s);
     return s;
 }
 
 int ReadLineWithNumber() {
     int result;
-    cin >> result;
+    std::cin >> result;
     ReadLine();
     return result;
 }
-
-vector<string> SplitIntoWords(const string& text) {
-    vector<string> words;
-    string word;
+// подготовка слов
+std::vector<std::string> SplitIntoWords(const std::string& text) {
+    std::vector<std::string> words;
+    std::string word;
     for (const char c : text) {
         if (c == ' ') {
             words.push_back(word);
@@ -57,10 +57,12 @@ enum class DocumentStatus {
 
 class SearchServer {
 public:
+    // заполнение вектора стоп слов
     void SetStopWords(const std::string& text) {
         for (const std::string& word : SplitIntoWords(text)) { stop_words_.insert(word); }
     }
 
+    //подготовка всех документов
     void AddDocument(int document_id, const std::string& document, DocumentStatus status,
         const std::vector<int>& score) {
         const std::vector<std::string> words = SplitIntoWordsNoStop(document);
@@ -75,13 +77,13 @@ public:
 
     int GetDocumentCount() const { return static_cast<int>(documents_.size()); }
    
-
-    vector<Document> FindTopDocuments(const string& raw_query, DocumentStatus status = DocumentStatus::ACTUAL) const {
+    //метод поиска ТОП документов
+    std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentStatus status = DocumentStatus::ACTUAL) const {
         return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus current_status,
             int rating) {return current_status == status; }) ;
     }
     template <typename Predicat>
-    vector<Document> FindTopDocuments(const string& raw_query, Predicat predicat) const {
+    std::vector<Document> FindTopDocuments(const std::string& raw_query, Predicat predicat) const {
         const Query query = ParseQuery(raw_query);
         auto matched_documents = FindAllDocuments(query, predicat); 
         sort(matched_documents.begin(), matched_documents.end(),
@@ -148,12 +150,14 @@ private:
         return words;
     }
 
+    //структура слов где слово относится или не относится к стоп и минус словам
     struct QueryWord {
         std::string data;
         bool is_minus;
         bool is_stop;
     };
 
+    //метод проверяющий слова на стоп и минус слова
     QueryWord ParseQueryWord(std::string text) const {
         bool is_minus = false;
         // Word shouldn't be empty
@@ -164,11 +168,13 @@ private:
         return { text, is_minus, IsStopWord(text) };
     }
 
+    //структура множеств плюс и минус слов
     struct Query {
         std::set<std::string> plus_words;
         std::set<std::string> minus_words;
     };
 
+    //метод заполняющий структуру плюс минус слов
     Query ParseQuery(const std::string& text) const {
         Query query;
         for (const std::string& word : SplitIntoWords(text)) {
@@ -185,11 +191,12 @@ private:
         return query;
     }
 
-    // Existence required
+    // метод для расчета IDF
     double ComputeWordInverseDocumentFreq(const std::string& word) const {
         return log(documents_.size() * 1.0 / word_to_document_freqs_.at(word).size());
     }
 
+    //метод подготовки всех документов
     template<typename Predicate>
     std::vector<Document> FindAllDocuments(const Query& query,
         Predicate predicate) const {
@@ -228,34 +235,34 @@ private:
 // ==================== для примера =========================
 
 void PrintDocument(const Document& document) {
-    cout << "{ "s
-        << "document_id = "s << document.id << ", "s
-        << "relevance = "s << document.relevance << ", "s
-        << "rating = "s << document.rating
-        << " }"s << endl;
+    std::cout << "{ "
+        << "document_id = " << document.id << ", "
+        << "relevance = " << document.relevance << ", "
+        << "rating = " << document.rating
+        << " }" << std::endl;
 }
 
 int main() {
     SearchServer search_server;
-    search_server.SetStopWords("и в на"s);
+    search_server.SetStopWords("и в на");
 
-    search_server.AddDocument(0, "белый кот и модный ошейник"s, DocumentStatus::ACTUAL, { 8, -3 });
-    search_server.AddDocument(1, "пушистый кот пушистый хвост"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
-    search_server.AddDocument(2, "ухоженный пёс выразительные глаза"s, DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
-    search_server.AddDocument(3, "ухоженный скворец евгений"s, DocumentStatus::BANNED, { 9 });
+    search_server.AddDocument(0, "белый кот и модный ошейник", DocumentStatus::ACTUAL, { 8, -3 });
+    search_server.AddDocument(1, "пушистый кот пушистый хвост", DocumentStatus::ACTUAL, { 7, 2, 7 });
+    search_server.AddDocument(2, "ухоженный пёс выразительные глаза", DocumentStatus::ACTUAL, { 5, -12, 2, 1 });
+    search_server.AddDocument(3, "ухоженный скворец евгений", DocumentStatus::BANNED, { 9 });
 
-    cout << "ACTUAL by default:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s)) {
+    std::cout << "ACTUAL by default:" << std::endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот")) {
         PrintDocument(document);
     }
 
-    cout << "ACTUAL:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; })) {
+    std::cout << "ACTUAL:" << std::endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот", [](int document_id, DocumentStatus status, int rating) { return status == DocumentStatus::ACTUAL; })) {
         PrintDocument(document);
     }
 
-    cout << "Even ids:"s << endl;
-    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот"s, [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
+    std::cout << "Even ids:" << std::endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот", [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
         PrintDocument(document);
     }
 
