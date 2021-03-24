@@ -8,7 +8,7 @@
 #include <vector>
 #include <numeric>
 #pragma warning(disable:4100)// исключение предупреждения
-//using namespace std;
+
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
 
@@ -82,6 +82,8 @@ public:
         return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus current_status,
             int rating) {return current_status == status; }) ;
     }
+
+    //для сортировки док. по различным переменным используем  шаблон
     template <typename Predicat>
     std::vector<Document> FindTopDocuments(const std::string& raw_query, Predicat predicat) const {
         const Query query = ParseQuery(raw_query);
@@ -100,29 +102,7 @@ public:
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
         }
         return matched_documents;
-    }
-
-  
-
-    std::tuple<std::vector<std::string>, DocumentStatus>
-        MatchDocument(const std::string& raw_query, int document_id) const {
-        const Query query = ParseQuery(raw_query);
-        std::vector<std::string> matched_words;
-        for (const auto& word : query.plus_words) {
-            if (word_to_document_freqs_.count(word) == 0) { continue; }
-            if (word_to_document_freqs_.at(word).count(document_id)) {
-                matched_words.push_back(word);
-            }
-        }
-        for (const auto& word : query.minus_words) {
-            if (word_to_document_freqs_.count(word) == 0) { continue; }
-            if (word_to_document_freqs_.at(word).count(document_id)) {
-                matched_words.clear();
-                break;
-            }
-        }
-        return { matched_words, documents_.at(document_id).status };
-    }
+    }   
 
 private:
     struct DocumentData {
@@ -139,9 +119,10 @@ private:
     }
 
     bool IsStopWord(const std::string& word) const {
-        return stop_words_.count(word) > 0;
+        return stop_words_.count(word) != 0;
     }
 
+    //добвили слова исключив соп слова
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const {
         std::vector<std::string> words;
         for (const std::string& word : SplitIntoWords(text)) {
@@ -163,11 +144,11 @@ private:
         // Word shouldn't be empty
         if (text[0] == '-') {
             is_minus = true;
-            text = text.substr(1);
+            text = text.substr(1);// записываем слово без первого символа
         }
         return { text, is_minus, IsStopWord(text) };
     }
-
+      
     //структура множеств плюс и минус слов
     struct Query {
         std::set<std::string> plus_words;
@@ -265,6 +246,9 @@ int main() {
     for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот", [](int document_id, DocumentStatus status, int rating) { return document_id % 2 == 0; })) {
         PrintDocument(document);
     }
-
+    std::cout << "Even ids:" << std::endl;
+    for (const Document& document : search_server.FindTopDocuments("пушистый ухоженный кот", [](int document_id, DocumentStatus status, int rating) { return rating > 3 && status == DocumentStatus::ACTUAL; })) {
+        PrintDocument(document);
+    }
     return 0;
 }
