@@ -24,7 +24,7 @@ int ReadLineWithNumber() {
     ReadLine();
     return result;
 }
-// подготовка слов
+
 std::vector<std::string> SplitIntoWords(const std::string& text) {
     std::vector<std::string> words;
     std::string word;
@@ -57,12 +57,11 @@ enum class DocumentStatus {
 
 class SearchServer {
 public:
-    // заполнение вектора стоп слов
+    
     void SetStopWords(const std::string& text) {
         for (const std::string& word : SplitIntoWords(text)) { stop_words_.insert(word); }
     }
-
-    //подготовка всех документов
+    
     void AddDocument(int document_id, const std::string& document, DocumentStatus status,
         const std::vector<int>& score) {
         const std::vector<std::string> words = SplitIntoWordsNoStop(document);
@@ -70,27 +69,26 @@ public:
         documents_.emplace(document_id, DocumentData{ ComputeAverageRating(score), status });
 
         const double inv_word_count = 1.0 / words.size();
-        for (const std::string& word : words) {
+        for (const std::string& word : words) {           
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
     }
 
-    int GetDocumentCount() const { return static_cast<int>(documents_.size()); }
+    int GetDocumentCount() const { return static_cast<int>(documents_.size()); }   
    
-    //метод поиска ТОП документов
     std::vector<Document> FindTopDocuments(const std::string& raw_query, DocumentStatus status = DocumentStatus::ACTUAL) const {
         return FindTopDocuments(raw_query, [status](int document_id, DocumentStatus current_status,
             int rating) {return current_status == status; }) ;
     }
-
-    //для сортировки док. по различным переменным используем  шаблон
-    template <typename Predicat>
-    std::vector<Document> FindTopDocuments(const std::string& raw_query, Predicat predicat) const {
+    
+    template <typename Predicate>
+    std::vector<Document> FindTopDocuments(const std::string& raw_query, const Predicate& predicate) const {
         const Query query = ParseQuery(raw_query);
-        auto matched_documents = FindAllDocuments(query, predicat); 
+        auto matched_documents = FindAllDocuments(query, predicate); 
+        const double eps = 1e-6;
         sort(matched_documents.begin(), matched_documents.end(),
-            [](const Document& lhs, const Document& rhs) {
-                if ((abs(lhs.relevance - rhs.relevance)) < 1e-6) {
+            [&](const Document& lhs, const Document& rhs) {
+                if ((abs(lhs.relevance - rhs.relevance)) < eps) {
                     return lhs.rating > rhs.rating;
                 }
                 else {
@@ -122,7 +120,6 @@ private:
         return stop_words_.count(word) != 0;
     }
 
-    //добвили слова исключив соп слова
     std::vector<std::string> SplitIntoWordsNoStop(const std::string& text) const {
         std::vector<std::string> words;
         for (const std::string& word : SplitIntoWords(text)) {
@@ -130,32 +127,28 @@ private:
         }
         return words;
     }
-
-    //структура слов где слово относится или не относится к стоп и минус словам
+   
     struct QueryWord {
         std::string data;
         bool is_minus;
         bool is_stop;
     };
-
-    //метод проверяющий слова на стоп и минус слова
+    
     QueryWord ParseQueryWord(std::string text) const {
         bool is_minus = false;
         // Word shouldn't be empty
         if (text[0] == '-') {
             is_minus = true;
-            text = text.substr(1);// записываем слово без первого символа
+            text = text.substr(1);
         }
         return { text, is_minus, IsStopWord(text) };
-    }
-      
-    //структура множеств плюс и минус слов
+    }      
+    
     struct Query {
         std::set<std::string> plus_words;
         std::set<std::string> minus_words;
     };
-
-    //метод заполняющий структуру плюс минус слов
+    
     Query ParseQuery(const std::string& text) const {
         Query query;
         for (const std::string& word : SplitIntoWords(text)) {
@@ -171,16 +164,13 @@ private:
         }
         return query;
     }
-
-    // метод для расчета IDF
+    
     double ComputeWordInverseDocumentFreq(const std::string& word) const {
         return log(documents_.size() * 1.0 / word_to_document_freqs_.at(word).size());
     }
-
-    //метод подготовки всех документов
+    
     template<typename Predicate>
-    std::vector<Document> FindAllDocuments(const Query& query,
-        Predicate predicate) const {
+    std::vector<Document> FindAllDocuments(const Query& query, const Predicate& predicate) const {
         std::map<int, double> document_to_relevance;
         for (const auto& word : query.plus_words) {
             if (word_to_document_freqs_.count(word) == 0) { continue; }
@@ -189,7 +179,7 @@ private:
 
             for (const auto [document_id, term_freq] : word_to_document_freqs_.at(word)) {
                 if (predicate(document_id, documents_.at(document_id).status,
-                    documents_.at(document_id).rating)) {
+                    documents_.at(document_id).rating)) {                    
                     document_to_relevance[document_id] += term_freq * inverse_document_freq;
                 }
             }
@@ -209,9 +199,7 @@ private:
         }
 
         return matched_documents;
-    }
-
-    
+    }    
 };
 // ==================== для примера =========================
 
